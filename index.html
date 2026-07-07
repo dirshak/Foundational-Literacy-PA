@@ -144,6 +144,9 @@
             <h2 id="levelTitle" class="level-title"></h2>
           </div>
 
+          <!-- Passing marks for every level, with the current level highlighted -->
+          <div id="passMarksStrip" class="pass-marks-strip"></div>
+
           <!-- Assessment Criteria Accordion -->
           <div class="accordion" id="criteriaAccordion">
             <button class="accordion-header" data-target="criteriaBody">
@@ -155,7 +158,7 @@
 
           <!-- Score entry -->
           <div class="score-panel">
-            <label for="scoreInput">Score (out of 10)</label>
+            <label for="scoreInput">Score (out of 10) <span id="scorePanelPassMark" class="pass-mark-inline"></span></label>
             <div class="score-input-row">
               <input type="number" id="scoreInput" min="0" max="10" step="0.5" placeholder="0 – 10" />
               <button id="submitScoreBtn" class="btn btn-primary">Submit Score</button>
@@ -198,7 +201,7 @@
             <div class="table-wrap">
               <table id="scoreTable" class="score-table">
                 <thead>
-                  <tr><th>Level</th><th>Score</th><th>Result</th></tr>
+                  <tr><th>Level</th><th>Passing Mark</th><th>Score</th><th>Result</th></tr>
                 </thead>
                 <tbody></tbody>
               </table>

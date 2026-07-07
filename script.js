@@ -36,11 +36,12 @@
   // ("Move ahead only if the student scored >8" / flowchart: "If Score >=8/10, Assess for next level").
   const STANDARD_PASS_MARK = 8;
 
-  // When a level is failed, the assessor walks backward one level at a time and the
-  // student is placed at the FIRST (highest) level whose own recorded score meets THAT
-  // level's own pass mark above — never at a level that was itself failed. If even
-  // Letter Level's score doesn't meet its own pass mark, Letter is used as an absolute
-  // floor placement anyway, since there is nowhere lower on the ladder.
+  // When a level is failed, the assessor walks backward one level at a time. The
+  // student is placed ONE LEVEL ABOVE the first (highest) level whose own recorded
+  // score meets that level's own pass mark above — e.g. fail Sentence but pass Word
+  // -> placed at Sentence; fail Sentence, fail Word, but pass Letter -> placed at
+  // Word. If even Letter Level's score doesn't meet its own pass mark, Letter is
+  // used as an absolute floor placement anyway, since there is nowhere lower to go.
 
   // Grade bands that determine a NEW student's starting level.
   const NEW_STUDENT_START_RULES = [
@@ -191,33 +192,33 @@
       "Begin here if the NEW Student is between Grade 3 and Grade 5.",
       "Begin here if the continuing student was retained/promoted to this level during the Impact assessment.",
       "Move ahead only if the student scored ≥8.",
-      "If the score is below 8, move back to Letter Level: if Letter's score meets its own pass mark, the student is placed at Letter; otherwise Letter is used as the floor placement.",
+      "If the score is below 8, move back to Letter Level: if Letter's score meets its own pass mark, the student is placed one level above it, at Word; otherwise Letter is used as the floor placement.",
     ],
     sentence: [
       "Begin here if NEW Student is in Grade 6 and above.",
       "Begin here if the continuing student was retained/promoted to this level during the Impact assessment.",
       "Move ahead only if the student scored ≥8.",
-      "If the score is below 8, move back to Word Level: if Word's score meets its own pass mark (≥8), the student is placed at Word; otherwise the check continues back to Letter Level.",
+      "If the score is below 8, move back to Word Level: if Word's score meets its own pass mark (≥8), the student is placed one level above it, at Sentence; otherwise the check continues back to Letter Level.",
     ],
     story: [
       "Begin here if the continuing student was retained/promoted to this level during the Impact assessment.",
       "No new student will begin assessment at the Story Level.",
       "Move ahead only if the student scored ≥8.",
-      "If the score is below 8, move back to Sentence Level: if Sentence's score meets its own pass mark (≥8), the student is placed at Sentence; otherwise the check continues further back.",
+      "If the score is below 8, move back to Sentence Level: if Sentence's score meets its own pass mark (≥8), the student is placed one level above it, at Story; otherwise the check continues further back.",
     ],
     advance: [
       "Begin here if the continuing student was retained/promoted to this level during the Impact assessment.",
       "No new student will begin assessment at the Advance Level.",
       "Move ahead to the Tuition program only if the student scored ≥8.",
-      "If the score is below 8, move back to Story Level: if Story's score meets its own pass mark (≥8), the student is placed at Story; otherwise the check continues further back.",
+      "If the score is below 8, move back to Story Level: if Story's score meets its own pass mark (≥8), the student is placed one level above it, at Advance; otherwise the check continues further back.",
     ],
   };
 
-  // The student is always placed at the highest level in the ladder whose OWN recorded
-  // score meets that level's own pass mark (10 for Letter, 8 for the rest) — walking
-  // backward one level at a time from wherever the failure occurred. Letter Level is an
-  // absolute floor: if even Letter's score doesn't meet its pass mark, the student is
-  // still placed there, since there is nowhere lower to go.
+  // The student is always placed ONE LEVEL ABOVE the highest level in the ladder whose
+  // OWN recorded score meets that level's own pass mark (10 for Letter, 8 for the rest)
+  // — walking backward one level at a time from wherever the failure occurred. Letter
+  // Level is an absolute floor: if even Letter's score doesn't meet its pass mark, the
+  // student is still placed there, since there is nowhere lower to go.
 
   /* =========================================================================
      2. STATE
@@ -278,36 +279,39 @@
       return { type: "ADVANCE", level, score, to: next };
     }
 
-    // Failed this level's own pass mark -> walk backward to find the highest
-    // level whose OWN recorded score actually meets ITS pass mark.
-    return walkBackward(prevLevelOf(level), level, score);
+    // Failed this level's own pass mark -> the student is placed ONE LEVEL ABOVE
+    // whichever level below is the first to actually meet its own pass mark
+    // (walking backward one level at a time; Letter Level is the absolute floor).
+    return cascadeCheck(level, prevLevelOf(level));
   }
 
   /**
    * Resolves a freshly-submitted score for a level being tested purely to
-   * find the correct final placement after a higher level was failed.
-   * `triggeredByLevel` is kept only for assessor-facing messaging (which
-   * failure led here) — it plays no part in the placement decision itself.
+   * find the correct final placement after a higher level (`failedLevel`) was
+   * failed. The placement never lands back on `failedLevel` itself by default —
+   * it only does when this check level turns out sufficient, in which case the
+   * student is placed one level above it (i.e. at `failedLevel`).
    */
-  function resolveCascadeScore(level, score, triggeredByLevel) {
-    state.scores[level] = score;
-    return evaluateBackwardScore(level, score, triggeredByLevel);
+  function resolveCascadeScore(checkLevel, score, failedLevel) {
+    state.scores[checkLevel] = score;
+    return evaluateCascadeOutcome(checkLevel, score, failedLevel);
   }
 
   /**
-   * A level is only ever a valid placement if ITS OWN score meets ITS OWN pass
-   * mark — passing a lower level never "rescues" a higher level that was
-   * failed. If this level also fails, the walk continues one level further
-   * back; Letter Level is the absolute floor regardless of its own score.
+   * checkLevel's OWN score is measured against checkLevel's OWN pass mark. If it
+   * meets that mark, the student is placed one level above checkLevel (which is
+   * exactly failedLevel — the level whose failure triggered this check). If not,
+   * the walk continues one level further back; Letter Level is the absolute floor
+   * regardless of its own score, since there is nowhere lower to go.
    */
-  function evaluateBackwardScore(level, score, triggeredByLevel) {
-    if (meetsForwardPass(level, score)) {
-      return { type: "PLACE", level, score, triggeredByLevel };
+  function evaluateCascadeOutcome(checkLevel, score, failedLevel) {
+    if (meetsForwardPass(checkLevel, score)) {
+      return { type: "PLACE", level: failedLevel, score, checkedLevel: checkLevel, checkedScore: score };
     }
-    if (level === LEVEL.LETTER) {
-      return { type: "PLACE", level: LEVEL.LETTER, score, floor: true, triggeredByLevel };
+    if (checkLevel === LEVEL.LETTER) {
+      return { type: "PLACE", level: LEVEL.LETTER, score, floor: true };
     }
-    return walkBackward(prevLevelOf(level), level, score);
+    return cascadeCheck(checkLevel, prevLevelOf(checkLevel));
   }
 
   /**
@@ -315,11 +319,11 @@
    * level being checked (no need to re-test), or signal that a fresh
    * assessment is required before a decision can be reached.
    */
-  function walkBackward(level, triggeredByLevel, triggeredByScore) {
-    if (Object.prototype.hasOwnProperty.call(state.scores, level)) {
-      return evaluateBackwardScore(level, state.scores[level], triggeredByLevel);
+  function cascadeCheck(failedLevel, checkLevel) {
+    if (Object.prototype.hasOwnProperty.call(state.scores, checkLevel)) {
+      return evaluateCascadeOutcome(checkLevel, state.scores[checkLevel], failedLevel);
     }
-    return { type: "NEED_ASSESSMENT", level, triggeredByLevel, triggeredByScore };
+    return { type: "NEED_ASSESSMENT", level: checkLevel, failedLevel };
   }
 
   /* =========================================================================
@@ -382,6 +386,24 @@
 
     const progressPct = currentIdx >= 0 ? Math.round((currentIdx / (stages.length - 1)) * 100) : 0;
     $("#progressFill").style.width = `${progressPct}%`;
+  }
+
+  /**
+   * Shows the passing mark for every level in the ladder at all times, with
+   * whichever level the student is currently being assessed on highlighted —
+   * so the assessor always knows exactly what score is needed, on any level.
+   */
+  function renderPassMarksStrip(currentLevel) {
+    $("#passMarksStrip").innerHTML = LEVEL_ORDER.map((lvl) => {
+      const meta = LEVEL_META[lvl];
+      const alreadyTested = Object.prototype.hasOwnProperty.call(state.scores, lvl);
+      const cls = lvl === currentLevel ? "current" : alreadyTested ? "done" : "";
+      return `
+        <span class="pass-mark-pill ${cls}">
+          <span class="pm-level">${meta.icon} ${meta.short}</span>
+          <span class="pm-mark">${passMarkShort(lvl)}</span>
+        </span>`;
+    }).join("");
   }
 
   /* ---------- Criteria rendering ---------- */
@@ -571,6 +593,8 @@
     banner.classList.toggle("cascade", mode === "cascade");
 
     renderCriteria(level);
+    renderPassMarksStrip(level);
+    $("#scorePanelPassMark").textContent = `— Passing Mark: ${passMarkDescription(level)}`;
 
     $("#scoreInput").value = "";
     $("#scoreError").classList.add("hidden");
@@ -603,10 +627,10 @@
     }
     errorEl.classList.add("hidden");
 
-    const { level, mode, triggeredByLevel } = state.current;
+    const { level, mode, failedLevel } = state.current;
     const decision = mode === "forward"
       ? resolveForwardScore(level, score)
-      : resolveCascadeScore(level, score, triggeredByLevel);
+      : resolveCascadeScore(level, score, failedLevel);
 
     // Log the raw test itself to the timeline.
     const meta = LEVEL_META[level];
@@ -614,7 +638,7 @@
       title: `${meta.label} assessed — Score = ${formatScore(score)}`,
       detail: mode === "forward"
         ? `Administered as the active assessment level.`
-        : `Administered as a backward placement check following a lower score at ${LEVEL_META[triggeredByLevel].label}.`,
+        : `Administered as a backward placement check following a lower score at ${LEVEL_META[failedLevel].label}.`,
       pass: meetsForwardPass(level, score),
     });
 
@@ -664,15 +688,16 @@
 
       case "NEED_ASSESSMENT": {
         panelClass = "fail"; badgeClass = "fail"; badgeText = "BELOW PASS MARK";
-        const triggeredMeta = LEVEL_META[decision.triggeredByLevel];
+        const failedMeta = LEVEL_META[decision.failedLevel];
+        const failedScore = state.scores[decision.failedLevel];
         const checkMeta = LEVEL_META[decision.level];
-        reasonText = `${triggeredMeta.label} score of ${formatScore(decision.triggeredByScore)} is below the pass mark. To determine final placement, the student is now assessed at ${checkMeta.label}.`;
+        reasonText = `${failedMeta.label} score of ${formatScore(failedScore)} is below the pass mark. To determine final placement, the student's foundation is now checked at ${checkMeta.label}.`;
         nextText = `Moving back to assess ${checkMeta.label}.`;
         title = `Moving back to ${checkMeta.label}`;
         detail = reasonText;
         state.history.push({ title, detail, pass: false });
 
-        state.current = { level: decision.level, mode: "cascade", triggeredByLevel: decision.triggeredByLevel, reason: `${triggeredMeta.label} score of ${formatScore(decision.triggeredByScore)} was below the pass mark. Assessing ${checkMeta.label} to determine final placement.` };
+        state.current = { level: decision.level, mode: "cascade", failedLevel: decision.failedLevel, reason: `${failedMeta.label} score of ${formatScore(failedScore)} was below the pass mark. Checking foundation at ${checkMeta.label}.` };
         if (!state.visitedLevels.includes(decision.level)) state.visitedLevels.push(decision.level);
         break;
       }
@@ -684,7 +709,8 @@
         if (decision.floor) {
           reasonText = `Letter Level score of ${formatScore(decision.score)} does not meet the required perfect score. Since Letter Level is the base of the ladder, the student is finally placed here regardless.`;
         } else {
-          reasonText = `${placedMeta.label} score of ${formatScore(decision.score)} meets its own pass mark (${passMarkDescription(decision.level)}). A level is only ever used as the final placement once its own score actually meets that mark, so the student is placed at ${placedMeta.label}.`;
+          const checkedMeta = LEVEL_META[decision.checkedLevel];
+          reasonText = `${checkedMeta.label} score of ${formatScore(decision.checkedScore)} meets its own pass mark (${passMarkDescription(decision.checkedLevel)}), confirming a solid foundation. The student is placed one level above, at ${placedMeta.label}.`;
         }
         nextText = `Final Placement: ${placedMeta.label}.`;
         title = `Final Placement — ${placedMeta.label}`;
@@ -729,6 +755,11 @@
 
   function passMarkDescription(level) {
     return level === LEVEL.LETTER ? "exactly 10/10" : `score of ${STANDARD_PASS_MARK} or above`;
+  }
+
+  // Compact form of the same pass mark, for badges/pills/table cells.
+  function passMarkShort(level) {
+    return level === LEVEL.LETTER ? `${LETTER_PERFECT_SCORE}/${MAX_SCORE}` : `≥${STANDARD_PASS_MARK}/${MAX_SCORE}`;
   }
 
   /* =========================================================================
@@ -793,6 +824,7 @@
       const passed = meetsForwardPass(l, score);
       return `<tr>
         <td>${LEVEL_META[l].icon} ${LEVEL_META[l].label}</td>
+        <td>${passMarkShort(l)}</td>
         <td>${formatScore(score)}</td>
         <td><span class="badge ${passed ? "pass" : "fail"}">${passed ? "Pass" : "Below Pass Mark"}</span></td>
       </tr>`;
