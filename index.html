@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Reading Level Placement Assessment</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Background decoration -->
+  <div class="bg-decor" aria-hidden="true">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  <div class="app-shell">
+
+    <!-- ============ HEADER ============ -->
+    <header class="app-header glass">
+      <div class="brand">
+        <div class="brand-mark">📚</div>
+        <div class="brand-text">
+          <h1>Reading Level Placement</h1>
+          <p>Assessment &amp; Promotion Engine</p>
+        </div>
+      </div>
+      <button id="restartBtn" class="btn btn-ghost" title="Start Over">↺ Restart</button>
+    </header>
+
+    <!-- ============ STEPPER ============ -->
+    <nav id="stepper" class="stepper glass" aria-label="Assessment progress"></nav>
+
+    <!-- ============ OVERALL PROGRESS BAR ============ -->
+    <div class="progress-track" aria-hidden="true">
+      <div id="progressFill" class="progress-fill"></div>
+    </div>
+
+    <!-- ============ MAIN ============ -->
+    <main id="app" class="app-main">
+
+      <!-- ---------- SCREEN: WELCOME / STUDENT TYPE ---------- -->
+      <section id="screen-welcome" class="screen active">
+        <div class="card glass hero-card">
+          <span class="eyebrow">Step 1 of 3</span>
+          <h2>Who are we assessing today?</h2>
+          <p class="muted">Choose the student category to begin the correct placement pathway.</p>
+
+          <div class="choice-grid">
+            <button class="choice-card" data-student-type="new">
+              <div class="choice-icon">🆕</div>
+              <div class="choice-title">New Student</div>
+              <div class="choice-desc">First-time assessment. Starting level is determined automatically from grade.</div>
+            </button>
+            <button class="choice-card" data-student-type="retained">
+              <div class="choice-icon">🔁</div>
+              <div class="choice-title">Retained Student</div>
+              <div class="choice-desc">Continuing student. Assessment resumes at their last completed/retained level.</div>
+            </button>
+          </div>
+
+          <div class="actions-row">
+            <button id="toSetupBtn" class="btn btn-primary" disabled>Continue →</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- SCREEN: NEW STUDENT SETUP ---------- -->
+      <section id="screen-new-setup" class="screen">
+        <div class="card glass hero-card">
+          <span class="eyebrow">Step 2 of 3</span>
+          <h2>New Student — Grade</h2>
+          <p class="muted">Select the student's current grade. The starting level is derived automatically from the placement rules.</p>
+
+          <div class="field">
+            <label for="gradeSelect">Current Grade</label>
+            <select id="gradeSelect">
+              <option value="" disabled selected>Select grade…</option>
+              <option value="UKG">UKG</option>
+              <option value="1">Grade 1</option>
+              <option value="2">Grade 2</option>
+              <option value="3">Grade 3</option>
+              <option value="4">Grade 4</option>
+              <option value="5">Grade 5</option>
+              <option value="6">Grade 6</option>
+              <option value="7">Grade 7</option>
+              <option value="8">Grade 8</option>
+              <option value="9">Grade 9</option>
+              <option value="10">Grade 10</option>
+              <option value="11">Grade 11</option>
+              <option value="12">Grade 12</option>
+            </select>
+          </div>
+
+          <div id="derivedLevelBox" class="derived-box hidden">
+            <div class="derived-label">Determined Starting Level</div>
+            <div id="derivedLevelName" class="derived-level"></div>
+            <div id="derivedLevelReason" class="derived-reason"></div>
+          </div>
+
+          <div class="actions-row">
+            <button id="backToWelcomeBtn1" class="btn btn-ghost">← Back</button>
+            <button id="startNewBtn" class="btn btn-primary" disabled>Begin Assessment →</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- SCREEN: RETAINED STUDENT SETUP ---------- -->
+      <section id="screen-retained-setup" class="screen">
+        <div class="card glass hero-card">
+          <span class="eyebrow">Step 2 of 3</span>
+          <h2>Retained Student — Last Level</h2>
+          <p class="muted">Select the level the student was retained in / had completed during the previous (Impact) assessment. Assessment begins there.</p>
+
+          <div class="field">
+            <label for="retainedLevelSelect">Last Retained / Completed Level</label>
+            <select id="retainedLevelSelect">
+              <option value="" disabled selected>Select level…</option>
+              <option value="letter">Letter Level</option>
+              <option value="word">Word Level</option>
+              <option value="sentence">Sentence Level</option>
+              <option value="story">Story Level</option>
+              <option value="advance">Advance Level</option>
+            </select>
+          </div>
+
+          <div class="actions-row">
+            <button id="backToWelcomeBtn2" class="btn btn-ghost">← Back</button>
+            <button id="startRetainedBtn" class="btn btn-primary" disabled>Begin Assessment →</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- SCREEN: ASSESSMENT ---------- -->
+      <section id="screen-assessment" class="screen">
+        <div id="assessmentBanner" class="context-banner glass"></div>
+
+        <div class="card glass assessment-card">
+          <div class="level-heading">
+            <span id="levelIcon" class="level-icon"></span>
+            <h2 id="levelTitle" class="level-title"></h2>
+          </div>
+
+          <!-- Assessment Criteria Accordion -->
+          <div class="accordion" id="criteriaAccordion">
+            <button class="accordion-header" data-target="criteriaBody">
+              <span>📋 Assessment Criteria</span>
+              <span class="chev">▾</span>
+            </button>
+            <div class="accordion-body open" id="criteriaBody"></div>
+          </div>
+
+          <!-- Score entry -->
+          <div class="score-panel">
+            <label for="scoreInput">Score (out of 10)</label>
+            <div class="score-input-row">
+              <input type="number" id="scoreInput" min="0" max="10" step="0.5" placeholder="0 – 10" />
+              <button id="submitScoreBtn" class="btn btn-primary">Submit Score</button>
+            </div>
+            <div id="scoreError" class="field-error hidden"></div>
+          </div>
+
+          <!-- Decision panel -->
+          <div id="decisionPanel" class="decision-panel hidden"></div>
+
+          <div class="actions-row">
+            <button id="continueBtn" class="btn btn-success hidden">Continue →</button>
+          </div>
+        </div>
+
+        <!-- Live decision history -->
+        <div class="card glass history-card">
+          <button class="accordion-header" data-target="historyBody">
+            <span>🕒 Decision History</span>
+            <span class="chev">▾</span>
+          </button>
+          <div class="accordion-body open" id="historyBody">
+            <ol id="timeline" class="timeline"></ol>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- SCREEN: FINAL REPORT ---------- -->
+      <section id="screen-final" class="screen">
+        <div class="card glass final-card">
+          <div class="final-header">
+            <span class="eyebrow">Assessment Complete</span>
+            <h2>Final Placement Report</h2>
+          </div>
+
+          <div id="finalSummaryGrid" class="final-summary-grid"></div>
+
+          <div class="report-section">
+            <h3>Score at Every Level</h3>
+            <div class="table-wrap">
+              <table id="scoreTable" class="score-table">
+                <thead>
+                  <tr><th>Level</th><th>Score</th><th>Result</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="report-section">
+            <button class="accordion-header" data-target="finalHistoryBody">
+              <span>🕒 Decision History (Full Timeline)</span>
+              <span class="chev">▾</span>
+            </button>
+            <div class="accordion-body open" id="finalHistoryBody">
+              <ol id="finalTimeline" class="timeline"></ol>
+            </div>
+          </div>
+
+          <div class="report-section report-grid">
+            <div class="report-block">
+              <h4>Reason</h4>
+              <p id="finalReason"></p>
+            </div>
+            <div class="report-block">
+              <h4>Recommendation</h4>
+              <p id="finalRecommendation"></p>
+            </div>
+            <div class="report-block">
+              <h4>Promotion Status</h4>
+              <p id="finalPromotion"></p>
+            </div>
+            <div class="report-block">
+              <h4>Next Step</h4>
+              <p id="finalNextStep"></p>
+            </div>
+          </div>
+
+          <div class="actions-row">
+            <button id="restartFromFinalBtn" class="btn btn-primary">Assess Another Student →</button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <footer class="app-footer">
+      <p>Placement rules sourced from the Impact Assessment framework · Levels: Letter → Word → Sentence → Story → Advance → Tuition</p>
+    </footer>
+  </div>
+
+<script src="script.js"></script>
+</body>
+</html>
